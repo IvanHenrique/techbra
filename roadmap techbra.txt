@@ -1,0 +1,183 @@
+📋 ROADMAP DE IMPLEMENTAÇÃO - ETAPAS
+🏗️ FASE 1: FUNDAÇÃO & INFRAESTRUTURA
+Etapa 1: Setup do Projeto Base
+
+Criar estrutura multi-módulo Maven
+Configurar Spring Boot 3.5.5 com Java 21
+Configurar aplicações base (order-service, subscription-service, bff)
+Docker Compose inicial (PostgreSQL, Redis, Kafka)
+
+Etapa 2: Arquitetura Hexagonal - Order Service
+
+Implementar hexagonal architecture completa
+Domain: Order, OrderItem, OrderStatus (entidades mínimas)
+Ports: OrderRepository, PaymentGateway (interfaces)
+Use Cases: CreateOrderUseCase, ProcessOrderUseCase
+Adapters: REST Controller, JPA Repository
+Testes unitários dos use cases
+
+Etapa 3: Arquitetura Hexagonal - Subscription Service
+
+Domain: Subscription, SubscriptionPlan, SubscriptionStatus
+Ports: SubscriptionRepository, BillingGateway
+Use Cases: CreateSubscriptionUseCase, CancelSubscriptionUseCase
+Adapters: REST Controller, JPA Repository
+Testes unitários dos use cases
+
+
+🚀 FASE 2: MENSAGERIA & INTEGRAÇÃO
+Etapa 4: Kafka Setup & Event Sourcing
+
+Configurar Kafka no Docker Compose
+Criar eventos base: OrderCreated, SubscriptionCreated
+Implementar Kafka producers em cada service
+Configurar tópicos essenciais
+
+Etapa 5: Implementar Saga Pattern
+
+Saga de Pedido: OrderCreated → PaymentRequested → OrderConfirmed
+Saga de Assinatura: SubscriptionCreated → BillingScheduled → SubscriptionActivated
+Kafka consumers para cada etapa
+Implementar idempotência básica
+
+Etapa 6: CQRS Básico
+
+Separar Command/Query models
+Read models otimizados para consultas
+Event handlers para atualizar read models
+
+
+🌐 FASE 3: BFF & API GATEWAY
+Etapa 7: Backend for Frontend
+
+Implementar BFF com endpoints essenciais
+View models otimizados para cliente
+Agregação de dados de múltiplos services
+Fallback strategies básicas
+
+Etapa 8: Contratos & OpenAPI
+
+Documentação OpenAPI em todos os services
+Contract testing entre BFF e services
+Validação de schemas
+
+
+🛡️ FASE 4: RESILIÊNCIA & PERFORMANCE
+Etapa 9: Cache Implementation
+
+Redis configurado no Docker Compose
+Cache L1/L2 para dados frequentes
+Invalidação por eventos Kafka
+Métricas de cache hit/miss
+
+Etapa 10: Resilience Patterns
+
+Circuit Breaker com Resilience4j
+Retry com exponential backoff
+Timeouts em todas as integrações
+Rate limiting básico
+
+
+📊 FASE 5: OBSERVABILIDADE
+Etapa 11: Métricas & Monitoring
+
+Micrometer + Prometheus
+Métricas customizadas (P95, P99)
+Health checks robustos
+Dashboards Grafana básicos
+
+Etapa 12: Distributed Tracing
+
+Spring Cloud Sleuth/Micrometer Tracing
+Jaeger para visualização
+Correlation IDs em todos os logs
+
+
+🐳 FASE 6: CONTAINERIZAÇÃO & KUBERNETES
+Etapa 13: Docker & Docker Compose
+
+Dockerfiles para cada service
+Docker Compose completo para desenvolvimento
+Multi-stage builds otimizados
+
+Etapa 14: Kubernetes Básico
+
+Manifestos K8s para cada service
+ConfigMaps e Secrets
+Services e Ingress
+
+Etapa 15: Helm Charts
+
+Charts Helm para cada service
+Values para diferentes ambientes
+Health probes (liveness, readiness)
+HPA básico
+
+
+🏗️ FASE 7: INFRAESTRUTURA COMO CÓDIGO
+Etapa 16: Terraform Setup
+
+Estrutura básica do Terraform
+Módulos para recursos comuns
+Remote state configuration
+Provisioning de ambiente dev
+
+Etapa 17: CI/CD Pipeline
+
+GitHub Actions / GitLab CI
+Build → Test → Docker Build → Deploy
+Pipeline básica com validações
+
+
+📚 FASE 8: DOCUMENTAÇÃO & GOVERNANÇA
+Etapa 18: Documentação C4
+
+Context Diagram
+Container Diagram
+Component Diagram (para um service)
+ADRs principais
+
+Etapa 19: FinOps & Governança
+
+Resource quotas
+KEDA setup básico
+Tags e labels para custos
+Budget alerts simulados
+
+Etapa 20: Testes de Integração & Deploy Final
+
+Testes E2E automatizados
+Smoke tests pós-deploy
+Runbook de incidentes
+README final e documentação de execução
+
+
+✅ CRITÉRIOS DE VALIDAÇÃO POR ETAPA
+Como vamos testar cada etapa:
+
+Arquitetura: Testes unitários passando + estrutura hexagonal clara
+Mensageria: Eventos sendo publicados/consumidos corretamente
+BFF: Endpoints respondendo com dados agregados
+Cache: Hit/miss rates sendo reportados
+Resiliência: Circuit breaker abrindo/fechando sob carga
+Observabilidade: Métricas aparecendo no Grafana
+K8s: Pods subindo healthy com probes OK
+IaC: Terraform apply funcionando sem erros
+
+
+📦 ENTREGÁVEIS MÍNIMOS POR ETAPA
+Cada etapa terá:
+
+✅ Código funcional
+✅ Testes automatizados
+✅ README específico da etapa
+✅ Comando de validação (ex: make test-etapa-x)
+
+
+🎯 FOCO: DEMONSTRAR FUNCIONAMENTO
+Lembrando que o objetivo é demonstrar cada tecnologia/padrão, não criar um sistema completo de produção. Cada etapa será:
+
+Mínima mas funcional
+Bem comentada explicando os padrões
+Testável para validação
+Documentada para entendimento
