@@ -1,0 +1,220 @@
+# Order Service Configuration
+# Configuração centralizada para diferentes ambientes
+
+server:
+  port: 8080
+  servlet:
+    context-path: /order-service
+
+spring:
+  application:
+    name: order-service
+
+  # ================================
+  # DATABASE CONFIGURATION
+  # ================================
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce_db
+    username: ecommerce_user
+    password: ecommerce_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Pool de conexões otimizado
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Produção usa validate, dev pode usar update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        # Otimizações de performance
+        jdbc.batch_size: 20
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
+
+  # ================================
+  # REDIS CACHE CONFIGURATION
+  # ================================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis_password
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 1
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000  # 5 minutos
+      cache-null-values: false
+
+  # ================================
+  # KAFKA CONFIGURATION
+  # ================================
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    # Producer Configuration
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all  # Garante durabilidade
+      retries: 3
+      batch-size: 16384
+      linger-ms: 5
+      buffer-memory: 33554432
+      properties:
+        enable.idempotence: true  # Evita duplicatas
+
+    # Consumer Configuration
+    consumer:
+      group-id: order-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false  # Manual commit para controle transacional
+      properties:
+        spring.json.trusted.packages: "com.ecommerce.platform"
+
+  # ================================
+  # ACTUATOR & MONITORING
+  # ================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info,env
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true  # Kubernetes probes
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0  # 100% para desenvolvimento
+
+# ================================
+# LOGGING CONFIGURATION
+# ================================
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# ================================
+# CUSTOM APPLICATION PROPERTIES
+# ================================
+app:
+  order:
+    # Configurações específicas do domínio de pedidos
+    max-items-per-order: 50
+    default-currency: BRL
+    processing-timeout-minutes: 30
+
+  integration:
+    # URLs dos outros microserviços
+    payment-service:
+      url: http://localhost:8082
+      timeout: 5000ms
+    inventory-service:
+      url: http://localhost:8083
+      timeout: 3000ms
+
+  kafka:
+    # Tópicos customizados
+    topics:
+      order-events: order.events
+      payment-events: payment.events
+      inventory-events: inventory.events
+
+# ================================
+# PROFILE SPECIFIC CONFIGURATIONS
+# ================================
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+  # Desabilita cache em testes
+  cache:
+    type: none
+
+  # Kafka Embedded para testes
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+logging:
+  level:
+    com.ecommerce.platform: INFO
+    org.hibernate.SQL: WARN

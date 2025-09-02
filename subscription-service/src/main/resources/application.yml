@@ -1,0 +1,270 @@
+# Subscription Service Configuration
+# Configuração para gestão de assinaturas e cobrança recorrente
+
+server:
+  port: 8081
+  servlet:
+    context-path: /subscription-service
+
+spring:
+  application:
+    name: subscription-service
+
+  # ================================
+  # DATABASE CONFIGURATION
+  # ================================
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce_db
+    username: ecommerce_user
+    password: ecommerce_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc.batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+  # ================================
+  # REDIS CACHE CONFIGURATION
+  # ================================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis_password
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000  # 10 minutos para subscription data
+      cache-null-values: false
+
+  # ================================
+  # QUARTZ SCHEDULER CONFIGURATION
+  # ================================
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: embedded  # Para desenvolvimento
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: SubscriptionScheduler
+            instanceId: AUTO
+          jobStore:
+            class: org.quartz.impl.jdbcjobstore.JobStoreTX
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            useProperties: false
+            tablePrefix: QRTZ_
+            misfireThreshold: 60000  # 1 minuto
+          threadPool:
+            class: org.quartz.simpl.SimpleThreadPool
+            threadCount: 10
+            threadPriority: 5
+            threadsInheritContextClassLoaderOfInitializingThread: true
+
+  # ================================
+  # KAFKA CONFIGURATION
+  # ================================
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    # Producer Configuration
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      batch-size: 16384
+      linger-ms: 5
+      properties:
+        enable.idempotence: true
+
+    # Consumer Configuration
+    consumer:
+      group-id: subscription-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: "com.ecommerce.platform"
+
+# ================================
+# ACTUATOR & MONITORING
+# ================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info,quartz
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    quartz:
+      enabled: true  # Endpoint para monitorar jobs
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+# ================================
+# LOGGING CONFIGURATION
+# ================================
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+    org.springframework.kafka: INFO
+    org.quartz: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# ================================
+# CUSTOM APPLICATION PROPERTIES
+# ================================
+app:
+  subscription:
+    # Configurações específicas do domínio de assinaturas
+    billing-cycles: MONTHLY,QUARTERLY,YEARLY
+    grace-period-days: 7  # Período de graça para pagamento em atraso
+    max-retry-attempts: 3
+    default-currency: BRL
+
+    # Configurações de cobrança
+    billing:
+      retry-interval-hours: 24
+      past-due-notification-days: 1,3,7
+      auto-cancel-after-days: 30
+
+  integration:
+    # URLs dos outros microserviços
+    order-service:
+      url: http://localhost:8080
+      timeout: 5000ms
+    payment-service:
+      url: http://localhost:8082
+      timeout: 5000ms
+    notification-service:
+      url: http://localhost:8084
+      timeout: 3000ms
+
+  kafka:
+    # Tópicos customizados
+    topics:
+      subscription-events: subscription.events
+      billing-events: billing.events
+      order-events: order.events
+      payment-events: payment.events
+
+# ================================
+# PROFILE SPECIFIC CONFIGURATIONS
+# ================================
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:h2:mem:subscriptiondb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  quartz:
+    jdbc:
+      initialize-schema: always
+
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testsubscriptiondb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+  # Desabilita cache em testes
+  cache:
+    type: none
+
+  # Quartz em memória para testes
+  quartz:
+    job-store-type: memory
+    jdbc:
+      initialize-schema: never
+
+  # Kafka Embedded para testes
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  quartz:
+    jdbc:
+      initialize-schema: never  # Schema gerenciado por migrations
+
+logging:
+  level:
+    com.ecommerce.platform: INFO
+    org.hibernate.SQL: WARN
+    org.quartz: WARN

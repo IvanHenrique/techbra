@@ -1,0 +1,312 @@
+# Customer BFF Configuration
+# Backend for Frontend - Agrega dados de múltiplos microserviços
+
+server:
+  port: 8090
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: customer-bff
+
+  # ================================
+  # REDIS CACHE CONFIGURATION
+  # ================================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis_password
+      timeout: 1000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 180000  # 3 minutos para dados agregados
+      cache-null-values: false
+
+  # ================================
+  # WEBFLUX CONFIGURATION
+  # ================================
+  webflux:
+    # Configurações para WebClient reativo
+    multipart:
+      max-in-memory-size: 1MB
+    codec:
+      max-in-memory-size: 1MB
+
+# ================================
+# RESILIENCE4J CONFIGURATION
+# ================================
+resilience4j:
+  # Circuit Breaker - Evita cascata de falhas
+  circuitbreaker:
+    instances:
+      order-service:
+        register-health-indicator: true
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+
+      subscription-service:
+        register-health-indicator: true
+        sliding-window-size: 10
+        failure-rate-threshold: 60  # Mais tolerante para subscriptions
+        wait-duration-in-open-state: 45s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+
+      payment-service:
+        register-health-indicator: true
+        sliding-window-size: 10
+        failure-rate-threshold: 40  # Menos tolerante para pagamentos
+        wait-duration-in-open-state: 60s
+        permitted-number-of-calls-in-half-open-state: 2
+        minimum-number-of-calls: 5
+
+  # Retry - Tentativas com backoff exponencial
+  retry:
+    instances:
+      order-service:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.SocketTimeoutException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException.BadRequest
+
+      subscription-service:
+        max-attempts: 2
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 1.5
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+
+      payment-service:
+        max-attempts: 2  # Pagamentos são críticos, poucos retries
+        wait-duration: 2s
+        exponential-backoff-multiplier: 2
+
+  # Rate Limiter - Controla carga por endpoint
+  ratelimiter:
+    instances:
+      api-calls:
+        limit-for-period: 100
+        limit-refresh-period: 1s
+        timeout-duration: 0s
+
+      expensive-calls:
+        limit-for-period: 10
+        limit-refresh-period: 1s
+        timeout-duration: 0s
+
+  # Bulkhead - Isolamento de recursos
+  bulkhead:
+    instances:
+      order-calls:
+        max-concurrent-calls: 20
+        max-wait-duration: 0ms
+
+      subscription-calls:
+        max-concurrent-calls: 15
+        max-wait-duration: 0ms
+
+# ================================
+# ACTUATOR & MONITORING
+# ================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info,circuitbreakers,ratelimiters
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+# ================================
+# LOGGING CONFIGURATION
+# ================================
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+    io.github.resilience4j: INFO
+    org.springframework.web.reactive: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# ================================
+# CUSTOM APPLICATION PROPERTIES
+# ================================
+app:
+  bff:
+    # Configurações gerais do BFF
+    max-aggregation-timeout: 5s
+    default-page-size: 20
+    max-page-size: 100
+
+    # Configurações de fallback
+    fallback:
+      enable-graceful-degradation: true
+      cache-stale-data-seconds: 3600  # 1 hora de dados obsoletos em emergência
+
+  # ================================
+  # MICROSERVICES INTEGRATION
+  # ================================
+  services:
+    order-service:
+      base-url: http://localhost:8080/order-service
+      endpoints:
+        orders: /orders
+        order-by-id: /orders/{id}
+        order-status: /orders/{id}/status
+      timeouts:
+        connection: 2s
+        read: 5s
+        write: 3s
+
+    subscription-service:
+      base-url: http://localhost:8081/subscription-service
+      endpoints:
+        subscriptions: /subscriptions
+        subscription-by-id: /subscriptions/{id}
+        plans: /plans
+        billing-history: /subscriptions/{id}/billing
+      timeouts:
+        connection: 2s
+        read: 4s
+        write: 3s
+
+    payment-service:
+      base-url: http://localhost:8082/payment-service
+      endpoints:
+        payments: /payments
+        payment-by-id: /payments/{id}
+        payment-methods: /payment-methods
+      timeouts:
+        connection: 1s
+        read: 10s  # Pagamentos podem demorar mais
+        write: 5s
+
+    inventory-service:
+      base-url: http://localhost:8083/inventory-service
+      endpoints:
+        products: /products
+        product-by-id: /products/{id}
+        stock: /products/{id}/stock
+      timeouts:
+        connection: 1s
+        read: 2s
+        write: 1s
+
+  # ================================
+  # CORS CONFIGURATION
+  # ================================
+  cors:
+    allowed-origins:
+      - http://localhost:3000    # React app
+      - http://localhost:4200    # Angular app
+      - https://*.ecommerce.com  # Production domains
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - "*"
+    allow-credentials: true
+    max-age: 3600
+
+# ================================
+# PROFILE SPECIFIC CONFIGURATIONS
+# ================================
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+# URLs locais para desenvolvimento
+app:
+  services:
+    order-service:
+      base-url: http://localhost:8080/order-service
+    subscription-service:
+      base-url: http://localhost:8081/subscription-service
+    payment-service:
+      base-url: http://localhost:8082/payment-service
+    inventory-service:
+      base-url: http://localhost:8083/inventory-service
+
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  # Desabilita cache em testes
+  cache:
+    type: none
+
+# Mock services para testes
+app:
+  services:
+    order-service:
+      base-url: http://localhost:${wiremock.server.port}
+    subscription-service:
+      base-url: http://localhost:${wiremock.server.port}
+    payment-service:
+      base-url: http://localhost:${wiremock.server.port}
+    inventory-service:
+      base-url: http://localhost:${wiremock.server.port}
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+# URLs de produção com service discovery
+app:
+  services:
+    order-service:
+      base-url: http://order-service:8080/order-service
+    subscription-service:
+      base-url: http://subscription-service:8081/subscription-service
+    payment-service:
+      base-url: http://payment-service:8082/payment-service
+    inventory-service:
+      base-url: http://inventory-service:8083/inventory-service
+
+logging:
+  level:
+    com.ecommerce.platform: INFO
