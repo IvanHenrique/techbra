@@ -7,7 +7,7 @@ import java.util.UUID;
  * Evento de criação de assinatura
  * Disparado quando uma nova assinatura é criada
  */
-record SubscriptionCreatedEvent(
+public record SubscriptionCreatedEvent(
     UUID eventId,
     UUID aggregateId,
     Long aggregateVersion,

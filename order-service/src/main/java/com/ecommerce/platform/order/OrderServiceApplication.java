@@ -1,4 +1,4 @@
-package com.ecommerce.platform;
+package com.ecommerce.platform.order;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -29,7 +29,6 @@ public class OrderServiceApplication {
 
     /**
      * Ponto de entrada da aplicação
-     * 
      * Configurações importantes:
      * - Profile ativo: definido via SPRING_PROFILES_ACTIVE
      * - Porta padrão: 8080 (configurável via application.yml)

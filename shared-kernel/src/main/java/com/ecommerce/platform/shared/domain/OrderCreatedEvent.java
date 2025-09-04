@@ -7,7 +7,7 @@ import java.util.UUID;
  * Evento de criação de pedido
  * Disparado quando um novo pedido é criado no sistema
  */
-record OrderCreatedEvent(
+public record OrderCreatedEvent(
     UUID eventId,
     UUID aggregateId,
     Long aggregateVersion,
