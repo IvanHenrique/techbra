@@ -1,5 +1,14 @@
 package com.ecommerce.platform.subscription.domain.port;
 
+import com.ecommerce.platform.subscription.application.subscription.request.BillingRequest;
+import com.ecommerce.platform.subscription.application.subscription.request.BillingScheduleRequest;
+import com.ecommerce.platform.subscription.application.subscription.request.BillingUpdateRequest;
+import com.ecommerce.platform.subscription.application.subscription.result.BillingCancellationResult;
+import com.ecommerce.platform.subscription.application.subscription.result.BillingResult;
+import com.ecommerce.platform.subscription.application.subscription.result.BillingScheduleResult;
+import com.ecommerce.platform.subscription.application.subscription.result.BillingUpdateResult;
+import com.ecommerce.platform.subscription.domain.enums.BillingStatus;
+
 import java.util.UUID;
 
 /**

@@ -1,6 +1,6 @@
 package com.ecommerce.platform.order.adapter.in.web.dto;
 
-import com.ecommerce.platform.order.domain.port.PaymentMethod;
+import com.ecommerce.platform.order.domain.enums.PaymentMethod;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testsubscriptiondb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+  cache:
+    type: none
+
+  quartz:
+    job-store-type: memory
+    jdbc:
+      initialize-schema: never
+
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}

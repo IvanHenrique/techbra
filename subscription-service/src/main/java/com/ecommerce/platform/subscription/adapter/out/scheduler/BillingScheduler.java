@@ -1,7 +1,7 @@
 package com.ecommerce.platform.subscription.adapter.out.scheduler;
 
-import com.ecommerce.platform.subscription.domain.service.ProcessBillingUseCase;
-import com.ecommerce.platform.subscription.domain.service.ProcessBillingResult;
+import com.ecommerce.platform.subscription.application.subscription.usecase.ProcessBillingUseCase;
+import com.ecommerce.platform.subscription.application.subscription.result.ProcessBillingResult;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;

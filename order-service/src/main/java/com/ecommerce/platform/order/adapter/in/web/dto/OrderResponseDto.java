@@ -1,5 +1,6 @@
 package com.ecommerce.platform.order.adapter.in.web.dto;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -21,7 +22,7 @@ public record OrderResponseDto(
     UUID subscriptionId,
     List<OrderItemResponseDto> items,
     String errorMessage
-) {
+) implements Serializable {
     /**
      * Factory method para erro
      */

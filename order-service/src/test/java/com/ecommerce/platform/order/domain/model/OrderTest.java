@@ -59,7 +59,7 @@ class OrderTest {
             assertThat(order.getTotalAmount()).isEqualTo(Money.zero());
             assertThat(order.getItems()).isEmpty();
             assertThat(order.getSubscriptionId()).isNull();
-            assertThat(order.getVersion()).isEqualTo(1L);
+            assertThat(order.getVersion()).isEqualTo(null);
             assertThat(order.getCreatedAt()).isNotNull();
             assertThat(order.getUpdatedAt()).isNotNull();
         }
@@ -357,18 +357,21 @@ class OrderTest {
             assertThat(oneTimeOrder.isRecurring()).isFalse();
             assertThat(recurringOrder.isRecurring()).isTrue();
         }
-        
+
         @Test
         @DisplayName("Deve manter versão para controle de concorrência")
         void shouldMaintainVersionForConcurrencyControl() {
             // Given
             Order order = Order.createOneTime(customerId, customerEmail);
             Long initialVersion = order.getVersion();
-            
+
             // Then
-            assertThat(initialVersion).isEqualTo(1L);
-            // Nota: Em cenário real, a versão seria incrementada pelo JPA/Hibernate
-            // quando há mudanças na entidade persistida
+            assertThat(initialVersion).isNull(); // JPA define a versão inicial como null
+
+            // Nota: JPA/Hibernate gerencia automaticamente a versão:
+            // - null para entidades não persistidas
+            // - 0 após primeiro save
+            // - incrementa a cada update
         }
     }
     

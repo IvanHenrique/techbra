@@ -1,5 +1,9 @@
 package com.ecommerce.platform.order.domain.port;
 
+import com.ecommerce.platform.order.application.order.request.PaymentRequest;
+import com.ecommerce.platform.order.application.order.result.PaymentResult;
+import com.ecommerce.platform.order.application.order.result.RefundResult;
+import com.ecommerce.platform.order.domain.enums.PaymentStatus;
 import com.ecommerce.platform.shared.domain.ValueObjects.Money;
 
 /**

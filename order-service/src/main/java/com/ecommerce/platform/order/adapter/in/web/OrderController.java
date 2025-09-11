@@ -1,16 +1,13 @@
 package com.ecommerce.platform.order.adapter.in.web;
 
 import com.ecommerce.platform.order.adapter.in.web.dto.*;
-import com.ecommerce.platform.order.domain.service.CreateOrderUseCase;
-import com.ecommerce.platform.order.domain.service.CreateOrderCommand;
-import com.ecommerce.platform.order.domain.service.CreateOrderResult;
-import com.ecommerce.platform.order.domain.service.ProcessOrderUseCase;
-import com.ecommerce.platform.order.domain.service.ProcessOrderResult;
-import com.ecommerce.platform.order.domain.service.ConfirmOrderCommand;
-import com.ecommerce.platform.order.domain.service.ProcessPaymentCommand;
-import com.ecommerce.platform.order.domain.service.CancelOrderCommand;
-import com.ecommerce.platform.order.domain.port.OrderRepository;
+import com.ecommerce.platform.order.application.order.command.*;
+import com.ecommerce.platform.order.application.order.result.CreateOrderResult;
+import com.ecommerce.platform.order.application.order.result.ProcessOrderResult;
+import com.ecommerce.platform.order.application.order.usecase.CreateOrderUseCase;
+import com.ecommerce.platform.order.application.order.usecase.ProcessOrderUseCase;
 import com.ecommerce.platform.order.domain.model.Order;
+import com.ecommerce.platform.order.domain.port.OrderRepository;
 import com.ecommerce.platform.shared.domain.ValueObjects.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -110,21 +107,24 @@ public class OrderController {
     @Operation(summary = "Buscar pedido por ID")
     @ApiResponse(responseCode = "200", description = "Pedido encontrado")
     @ApiResponse(responseCode = "404", description = "Pedido não encontrado")
-    @Cacheable(value = "orders", key = "#orderId")
     public ResponseEntity<OrderResponseDto> getOrder(
             @Parameter(description = "ID do pedido") 
             @PathVariable UUID orderId) {
-        
-        logger.debug("Buscando pedido: {}", orderId);
-        
-        Optional<Order> orderOpt = orderRepository.findById(orderId);
-        
-        if (orderOpt.isPresent()) {
-            OrderResponseDto response = mapToOrderResponseDto(orderOpt.get());
+
+        OrderResponseDto response = getCachedOrder(orderId);
+
+        if (response != null) {
             return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @Cacheable(value = "orders", key = "#orderId")
+    public OrderResponseDto getCachedOrder(UUID orderId) {
+        logger.debug("Buscando pedido no banco: {}", orderId);
+        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        return orderOpt.map(this::mapToOrderResponseDto).orElse(null);
     }
     
     /**
@@ -132,27 +132,28 @@ public class OrderController {
      */
     @GetMapping
     @Operation(summary = "Listar pedidos de um cliente")
-    @Cacheable(value = "customer-orders", key = "#customerId")
     public ResponseEntity<List<OrderResponseDto>> getCustomerOrders(
             @Parameter(description = "ID do cliente")
             @RequestParam String customerId) {
-        
-        logger.debug("Buscando pedidos do cliente: {}", customerId);
-        
+
         try {
-            CustomerId customerIdVO = CustomerId.of(customerId);
-            List<Order> orders = orderRepository.findByCustomerId(customerIdVO);
-            
-            List<OrderResponseDto> response = orders.stream()
-                .map(this::mapToOrderResponseDto)
-                .toList();
-                
+            List<OrderResponseDto> response = getCachedCustomerOrders(customerId);
             return ResponseEntity.ok(response);
-            
         } catch (IllegalArgumentException e) {
             logger.warn("ID de cliente inválido: {}", customerId);
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @Cacheable(value = "customer-orders", key = "#customerId")
+    public List<OrderResponseDto> getCachedCustomerOrders(String customerId) {
+        logger.debug("Buscando pedidos do cliente no banco: {}", customerId);
+        CustomerId customerIdVO = CustomerId.of(customerId);
+        List<Order> orders = orderRepository.findByCustomerId(customerIdVO);
+
+        return orders.stream()
+                .map(this::mapToOrderResponseDto)
+                .toList();
     }
     
     /**
@@ -295,7 +296,7 @@ public class OrderController {
         var customerEmail = CustomerEmail.of(request.customerEmail());
         
         var items = request.items().stream()
-            .map(itemDto -> new com.ecommerce.platform.order.domain.service.OrderItemCommand(
+            .map(itemDto -> new OrderItemCommand(
                 ProductId.of(itemDto.productId()),
                 Quantity.of(itemDto.quantity()),
                 Money.of(itemDto.unitPrice(), "BRL")

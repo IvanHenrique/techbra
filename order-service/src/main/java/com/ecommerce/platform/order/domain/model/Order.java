@@ -25,56 +25,57 @@ import java.util.UUID;
 @Entity
 @Table(name = "orders")
 public class Order {
-    
+
     @Id
     @Column(name = "id")
     private UUID id;
-    
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "customer_id"))
+
+    // CORRIGIDO: Removido @Embedded e @AttributeOverride
+    // O AttributeConverter fará a conversão automaticamente
+    @Column(name = "customer_id")
     private CustomerId customerId;
-    
-    @Embedded 
-    @AttributeOverride(name = "value", column = @Column(name = "customer_email"))
+
+    @Column(name = "customer_email")
     private CustomerEmail customerEmail;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     @NotNull
     private OrderStatus status;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "type")
     @NotNull
     private OrderType type;
-    
-    @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "amount", column = @Column(name = "total_amount")),
-        @AttributeOverride(name = "currency", column = @Column(name = "currency"))
-    })
-    private Money totalAmount;
-    
+
+    // CORRIGIDO: Removido @Embedded e @AttributeOverrides
+    // Usando colunas separadas com conversão manual
+    @Column(name = "total_amount")
+    private java.math.BigDecimal totalAmount;
+
+    @Column(name = "currency")
+    private String currency = "BRL";
+
     @Column(name = "created_at")
     private Instant createdAt;
-    
-    @Column(name = "updated_at") 
+
+    @Column(name = "updated_at")
     private Instant updatedAt;
-    
+
     @Column(name = "subscription_id")
     private UUID subscriptionId; // Nullable - apenas para pedidos recorrentes
-    
+
     @Version
     @Column(name = "version")
     private Long version;
-    
+
     // Relacionamento um-para-muitos com OrderItem
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<OrderItem> items = new ArrayList<>();
-    
+
     // Construtor protegido para JPA
     protected Order() {}
-    
+
     /**
      * Construtor privado - Use factory methods
      */
@@ -84,10 +85,12 @@ public class Order {
         this.customerEmail = customerEmail;
         this.type = type;
         this.status = OrderStatus.PENDING;
-        this.totalAmount = Money.zero();
+        // CORRIGIDO: Definir totalAmount como BigDecimal e currency separadamente
+        this.totalAmount = java.math.BigDecimal.ZERO;
+        this.currency = "BRL";
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
-        this.version = 1L;
+        this.version = null;
     }
 
     /**
@@ -106,10 +109,10 @@ public class Order {
         }
         return new Order(customerId, customerEmail, OrderType.ONE_TIME);
     }
-    
+
     /**
      * Factory Method: Criar pedido recorrente (gerado por assinatura)
-     * 
+     *
      * @param customerId ID do cliente
      * @param customerEmail Email do cliente
      * @param subscriptionId ID da assinatura que gerou o pedido
@@ -130,31 +133,31 @@ public class Order {
         order.subscriptionId = subscriptionId;
         return order;
     }
-    
+
     /**
      * Adiciona item ao pedido
      * Regras de negócio:
      * - Pedido deve estar em status PENDING
      * - Recalcula total automaticamente
      * - Valida quantidade máxima de itens
-     * 
+     *
      * @param productId ID do produto
      * @param quantity Quantidade
      * @param unitPrice Preço unitário
      */
     public void addItem(ProductId productId, Quantity quantity, Money unitPrice) {
         validateCanAddItems();
-        
+
         // Limite de itens por pedido (regra de negócio)
         if (items.size() >= 50) {
             throw new IllegalStateException("Ordem não pode ter mais de 50 itens");
         }
-        
+
         // Verifica se produto já existe no pedido
         var existingItem = items.stream()
-            .filter(item -> item.getProductId().equals(productId))
-            .findFirst();
-            
+                .filter(item -> item.getProductId().equals(productId))
+                .findFirst();
+
         if (existingItem.isPresent()) {
             // Atualiza quantidade do item existente
             existingItem.get().updateQuantity(quantity);
@@ -163,27 +166,27 @@ public class Order {
             OrderItem newItem = OrderItem.create(this, productId, quantity, unitPrice);
             items.add(newItem);
         }
-        
+
         recalculateTotal();
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Remove item do pedido
      */
     public void removeItem(ProductId productId) {
         validateCanAddItems();
-        
+
         boolean removed = items.removeIf(item -> item.getProductId().equals(productId));
-        
+
         if (!removed) {
             throw new IllegalArgumentException("Item não encontrado no pedido");
         }
-        
+
         recalculateTotal();
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Confirma o pedido - Transição de PENDING para CONFIRMED
      * Regras de negócio:
@@ -195,19 +198,19 @@ public class Order {
         if (status != OrderStatus.PENDING) {
             throw new IllegalStateException("Só é possível confirmar pedidos pendentes");
         }
-        
+
         if (items.isEmpty()) {
             throw new IllegalStateException("Pedido deve ter pelo menos um item");
         }
-        
-        if (totalAmount.amount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+
+        if (totalAmount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
             throw new IllegalStateException("Valor total deve ser maior que zero");
         }
-        
+
         this.status = OrderStatus.CONFIRMED;
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Marca pedido como pago - Transição para PAID
      */
@@ -215,11 +218,11 @@ public class Order {
         if (status != OrderStatus.CONFIRMED) {
             throw new IllegalStateException("Só é possível pagar pedidos confirmados");
         }
-        
+
         this.status = OrderStatus.PAID;
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Marca pedido como enviado - Transição para SHIPPED
      */
@@ -227,11 +230,11 @@ public class Order {
         if (status != OrderStatus.PAID) {
             throw new IllegalStateException("Só é possível enviar pedidos pagos");
         }
-        
+
         this.status = OrderStatus.SHIPPED;
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Marca pedido como entregue - Transição para DELIVERED
      */
@@ -239,11 +242,11 @@ public class Order {
         if (status != OrderStatus.SHIPPED) {
             throw new IllegalStateException("Só é possível entregar pedidos enviados");
         }
-        
+
         this.status = OrderStatus.DELIVERED;
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Cancela o pedido
      * Regras de negócio:
@@ -253,23 +256,25 @@ public class Order {
         if (status == OrderStatus.DELIVERED) {
             throw new IllegalStateException("Não é possível cancelar pedidos já entregues");
         }
-        
+
         this.status = OrderStatus.CANCELLED;
         this.updatedAt = Instant.now();
     }
-    
+
     /**
      * Recalcula o valor total baseado nos itens
      */
     private void recalculateTotal() {
         java.math.BigDecimal total = items.stream()
-            .map(OrderItem::getTotalPrice)
-            .map(Money::amount)
-            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-            
-        this.totalAmount = Money.of(total, "BRL");
+                .map(OrderItem::getTotalPrice)
+                .map(Money::amount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        // CORRIGIDO: Atualizar totalAmount diretamente
+        this.totalAmount = total;
+        this.currency = "BRL";
     }
-    
+
     /**
      * Valida se é possível adicionar/remover itens
      */
@@ -278,20 +283,25 @@ public class Order {
             throw new IllegalStateException("Só é possível modificar pedidos pendentes");
         }
     }
-    
+
     // Getters (sem setters para manter imutabilidade controlada)
     public UUID getId() { return id; }
     public CustomerId getCustomerId() { return customerId; }
     public CustomerEmail getCustomerEmail() { return customerEmail; }
     public OrderStatus getStatus() { return status; }
     public OrderType getType() { return type; }
-    public Money getTotalAmount() { return totalAmount; }
+
+    // CORRIGIDO: getTotalAmount retorna Money criado a partir dos campos separados
+    public Money getTotalAmount() {
+        return Money.of(totalAmount, currency);
+    }
+
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public UUID getSubscriptionId() { return subscriptionId; }
     public Long getVersion() { return version; }
     public List<OrderItem> getItems() { return new ArrayList<>(items); } // Cópia defensiva
-    
+
     /**
      * Métodos de conveniência para verificação de status
      */
@@ -302,7 +312,7 @@ public class Order {
     public boolean isDelivered() { return status == OrderStatus.DELIVERED; }
     public boolean isCancelled() { return status == OrderStatus.CANCELLED; }
     public boolean isRecurring() { return type == OrderType.SUBSCRIPTION_GENERATED; }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
@@ -310,15 +320,15 @@ public class Order {
         Order order = (Order) obj;
         return id.equals(order.id);
     }
-    
+
     @Override
     public int hashCode() {
         return id.hashCode();
     }
-    
+
     @Override
     public String toString() {
-        return String.format("Order{id=%s, customerId=%s, status=%s, type=%s, total=%s}", 
-            id, customerId, status, type, totalAmount);
+        return String.format("Order{id=%s, customerId=%s, status=%s, type=%s, total=%s %s}",
+                id, customerId, status, type, totalAmount, currency);
     }
 }

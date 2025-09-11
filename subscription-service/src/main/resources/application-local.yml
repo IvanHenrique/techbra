@@ -1,0 +1,80 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce_db
+    username: ecommerce_user
+    password: ecommerce_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis_password
+      timeout: 2000ms
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000
+      cache-null-values: false
+    data:
+      redis:
+        host: localhost
+        port: 6379
+        password: redis_password
+
+  quartz:
+    enabled: false
+
+#  quartz:
+#    job-store-type: jdbc
+#    jdbc:
+#      initialize-schema: embedded  # Para desenvolvimento
+#    properties:
+#      org:
+#        quartz:
+#          scheduler:
+#            instanceName: SubscriptionScheduler
+#            instanceId: AUTO
+#          jobStore:
+#            class: org.quartz.impl.jdbcjobstore.JobStoreTX
+#            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+#            useProperties: false
+#            tablePrefix: QRTZ_
+#            misfireThreshold: 60000  # 1 minuto
+#          threadPool:
+#            class: org.quartz.simpl.SimpleThreadPool
+#            threadCount: 10
+#            threadPriority: 5
+#            threadsInheritContextClassLoaderOfInitializingThread: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info,quartz
+  endpoint:
+    health:
+      show-details: always
+    quartz:
+      enabled: true
+
+logging:
+  level:
+    com.ecommerce.platform: DEBUG
+    org.springframework.kafka: INFO
+    org.quartz: DEBUG
+    org.springframework.cache: TRACE
+    org.springframework.data.redis.cache: TRACE
